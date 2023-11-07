@@ -8,9 +8,11 @@ Please refer for more information:
 * http://www.deeplasia.de/
 * https://github.com/aimi-bonn/Deeplasia
 
-[![Build Docker Image](https://github.com/sRassmann/deeplasia-service/actions/workflows/build.yml/badge.svg)](https://github.com/sRassmann/deeplasia-service/actions/workflows/build.yml)
+[![Build Docker Image](https://github.com/CrescNet/deeplasia-service/actions/workflows/build.yml/badge.svg)](https://github.com/CrescNet/deeplasia-service/actions/workflows/build.yml)
 
 ## How to Use
+
+In order to run this application, you must provide the deep learning models. Please contact use to get them.
 
 Use the environment variable `DEEPLASIA_THREADS` to limit the number of threads used by [PyTorch](https://pytorch.org/) (defaults to 4 threads).
 
@@ -35,12 +37,12 @@ python flask run
 **Requirements:**
 
 * [Docker](https://docs.docker.com/engine/install/) must be installed
-* Deep learning models are not included in the image and must be mounted on the container start
+* Deep learning models are not included in the image and must be mounted on container start
 
-You can use our pre-built Docker image to run the application:
+You can use our pre built Docker image to run the application:
 
 ```sh
-docker run -p 8080:8080 -v ./models:/app/models ghcr.io/srassmann/deeplasia-service
+docker run -p 8080:8080 -v ./models:/app/models ghcr.io/crescnet/deeplasia-service
 ```
 
 Or you can build the image yourself (clone this repository first):
@@ -65,12 +67,12 @@ Note, that this should match the number of threads specified with environment va
 e.g.:
 
 ```sh
-docker run -p 8080:8080 --cpus=2 -e "DEEPLASIA_THREADS=2" -v ./models:/app/models ghcr.io/srassmann/deeplasia-service
+docker run -p 8080:8080 --cpus=2 -e "DEEPLASIA_THREADS=2" -v ./models:/app/models ghcr.io/crescnet/deeplasia-service
 ```
 
 ## API
 
-[![Swagger UI](https://img.shields.io/badge/-Swagger%20UI-%23Clojure?style=flat&logo=swagger&logoColor=white)](https://srassmann.github.io/deeplasia-service)
+[![Swagger UI](https://img.shields.io/badge/-Swagger%20UI-%23Clojure?style=flat&logo=swagger&logoColor=white)](https://crescnet.github.io/deeplasia-service/)
 
 Please refer to `deeplasia-api.yml` for an [OpenAPI](https://www.openapis.org/) specification of the API.
 
@@ -87,10 +89,10 @@ test_img = "/path/to/xray.png"
 files = { "file": open(test_img, "rb") }
 
 data = {
-        "sex": "female",  # specify
-        "use_mask": True,  # default is true
-        "mask_crop":  1.15,  # default is 1.15
-        "use_invChecker": True, # default is true
+    "sex": "female",  # specify the sex as "female" or "male"
+    "use_mask": True,  # default is true
+    "mask_crop":  1.15,  # default is 1.15
+    "use_invChecker": True, # default is true
 }
 
 resp = requests.post(url, files=files, json=data)
@@ -102,6 +104,7 @@ Gives something like:
 ```json
 {
     "bone_age": 164.9562530517578,
+    "used_sex": "female"
 }
 ```
 
