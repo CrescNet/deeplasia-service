@@ -42,7 +42,7 @@ python flask run
 You can use our pre built Docker image to run the application:
 
 ```sh
-docker run -p 8080:8080 -v ./models:/app/models ghcr.io/CrescNet/deeplasia-service
+docker run -p 8080:8080 -v ./models:/app/models ghcr.io/crescnet/deeplasia-service
 ```
 
 Or you can build the image yourself (clone this repository first):
@@ -67,10 +67,12 @@ Note, that this should match the number of threads specified with environment va
 e.g.:
 
 ```sh
-docker run -p 8080:8080 --cpus=2 -e "DEEPLASIA_THREADS=2" -v ./models:/app/models ghcr.io/CrescNet/deeplasia-service
+docker run -p 8080:8080 --cpus=2 -e "DEEPLASIA_THREADS=2" -v ./models:/app/models ghcr.io/crescnet/deeplasia-service
 ```
 
 ## API
+
+[![Swagger UI](https://img.shields.io/badge/-Swagger%20UI-%23Clojure?style=flat&logo=swagger&logoColor=white)](https://crescnet.github.io/deeplasia-service/)
 
 Please refer to `deeplasia-api.yml` for an [OpenAPI](https://www.openapis.org/) specification of the API.
 
