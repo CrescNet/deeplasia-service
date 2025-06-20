@@ -10,7 +10,8 @@ import cv2
 def get_inference_aug(size=512):
     return A.Compose(
         [
-            A.RandomResizedCrop(size, size, scale=(1.0, 1.0), ratio=(1.0, 1.0)),
+            A.RandomResizedCrop(size, size, scale=(1.0, 1.0), ratio=(1.0, 1.0)), # Outdated
+            #A.RandomResizedCrop((size, size), scale=(1.0, 1.0), ratio=(1.0, 1.0)), #For new Version
             ToTensorV2(),
         ],
         additional_targets={"weight": "mask"},
@@ -51,6 +52,7 @@ class Predictor:
 
         image_crop[y : y + h, x : x + w] = raw_image
         image = self.aug(image=image_crop)["image"].unsqueeze(dim=0)
+        #print("Shape after unsqueeze:", image.shape)
         image = normalize_image(image)
         with torch.no_grad():
             output = self.model(image.to(self.model.device))

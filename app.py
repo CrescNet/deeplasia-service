@@ -34,17 +34,17 @@ ensemble = {
         pretrained_path="./models/masked_effnet_super_shallow_fancy_aug.ckpt",
         load_dense=True,
     ).eval(),
-    # use only one model of the ensemble to speed up the testing for now
-    # "masked_effnet_supShal_highRes_fancy_aug": BoneAgeModel(
-    #     "efficientnet-b0",
-    #     pretrained_path="./models/masked_effnet_supShal_highRes_fancy_aug.ckpt",
-    #     load_dense=True,
-    # ).eval(),
-    # "masked_effnet-b4_shallow_pretr_fancy_aug": BoneAgeModel(
-    #     "efficientnet-b4",
-    #     pretrained_path="./models/masked_effnet-b4_shallow_pretr_fancy_aug.ckpt",
-    #     load_dense=True,
-    # ).eval(),
+
+    "masked_effnet_supShal_highRes_fancy_aug": BoneAgeModel(
+        "efficientnet-b0",
+        pretrained_path="./models/masked_effnet_supShal_highRes_fancy_aug.ckpt",
+        load_dense=True,
+    ).eval(),
+    "masked_effnet-b4_shallow_pretr_fancy_aug": BoneAgeModel(
+        "efficientnet-b4",
+        pretrained_path="./models/masked_effnet-b4_shallow_pretr_fancy_aug.ckpt",
+        load_dense=True,
+    ).eval(),
 }
 if enable_sex_prediction:
     sex_model_ensemble = {
@@ -56,19 +56,19 @@ if enable_sex_prediction:
 torch.set_num_threads(threads)  # define number of threads for pytorch
 mask_predictor = MaskPredictor(checkpoint=mask_model_path, use_cuda=use_cuda)
 age_predictor = AgePredictor(ensemble, use_cuda=use_cuda)
-sex_predictor = (
-    SexPredictor(ensemble, use_cuda=use_cuda) if enable_sex_prediction else None
-)
 
 
-def get_prediction(image_bytes, sex, use_mask):
+
+
+
+def get_prediction(image_bytes, sex, use_mask, use_invChecker, mask_crop=1.15):
     file_bytes = np.asarray(bytearray(image_bytes), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, 1)
-    sex_predicted = False
+
 
     if len(img.shape) == 3:
         img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
+    img = (img / img.max() * 255).astype(np.uint8)
     if use_mask:
         try:
             mask, vis = mask_predictor(img)
@@ -76,48 +76,77 @@ def get_prediction(image_bytes, sex, use_mask):
             print("no mask found")
             mask = np.ones_like(img)
             vis = img.copy()
+
     else:
-        mask = np.ones_like(img)
+        mask = None #np.ones_like(img)
         vis = img.copy()
-    mask = (mask > mask.max() // 2).astype(np.uint8)
+
+    if mask is not None:
+        mask = (mask > mask.max() // 2).astype(np.uint8)
+
+    if use_invChecker and use_mask: #
+        img, mask = invChecker(img, mask)
 
     if sex in ["Male", "male", "m", "M"]:
         sex, sex_input = "m", 1
-    elif sex in ["Female", "female", "f", "F"]:
+    elif sex in ["Female", "female", "f", "F", "w", "W"]:
         sex, sex_input = "f", 0
 
     if sex not in ["m", "f"]:
-        if sex_predictor is not None:
-            sex, _ = sex_predictor(img, mask=mask, mask_crop=1.15)
-            sex_input = sex > 0.5
-            sex = "m" if sex else "f"
-            sex_predicted = True
-        else:
-            raise Exception("Sex is not provided and sex inference disabled")
+        raise Exception("Sex is not provided")
 
-    age, stats = age_predictor(img, sex_input, mask=mask, mask_crop=1.15)
+    age, stats = age_predictor(img, sex_input, mask=mask, mask_crop=mask_crop)
 
-    return age.item(), sex, sex_predicted
+    return age.item(), sex
 
+
+def invChecker(img, mask):
+    omitExtr = 8
+    mask = (mask > mask.max() // 2).astype(np.uint8)  # So that every mask is really a mask
+    maskXS = cv2.resize(mask, (100, 100), interpolation=cv2.INTER_AREA)  # To improve speed and single pixel operation effects are independent of Resolution
+    maskXS = maskXS[1:-1, 1:-1]  # To cut off eventual Border artefacts without losing too much info
+    kernel = np.ones((2, 2), np.uint8)
+    maskXSD = cv2.erode(maskXS, kernel, iterations=2)  # dilate(maskXS, kernel, iterations=2)
+    maskXSR = cv2.subtract(maskXS, maskXSD).astype(bool)  # create inner border of Hand for comparison
+
+    imgXS = cv2.resize(img, (100, 100), interpolation=cv2.INTER_AREA)  # To improve speed and single pixel operation effects are independent of Resolution
+    imgXS = imgXS[1:-1, 1:-1]  # To cut off eventual Border artefacts without losing too much info
+    imgXS = cv2.equalizeHist(imgXS * maskXS)
+
+    handR = imgXS[maskXSR]
+    handR = handR[(handR < 255 - omitExtr) & (handR > omitExtr)]
+    hand = imgXS[maskXS.astype(bool)]
+    hand = hand[(hand < 255 - omitExtr) & (hand > omitExtr)]
+
+    if handR.mean() / hand.mean() > 1.2:  # 1.2 found empirically
+        img = 255 - img
+
+    return img, mask
 
 @app.post("/predict")
 def predict():
-    if "file" not in request.files:
-        abort(400, "No file provided!")
+    try:
+        if "file" not in request.files:
+            abort(400, "No file provided!")
 
-    file = request.files["file"]
-    image_bytes = file.read()
+        file = request.files["file"]
+        image_bytes = file.read()
 
-    sex = request.form.get("sex")
-    use_mask = request.form.get("use_mask")
+        sex = request.form.get("sex")
 
-    bone_age, sex, sex_predicted = get_prediction(image_bytes, sex, use_mask)
+        use_mask = request.form.get("use_mask", "True") == "True"
+        mask_crop = float(request.form.get("mask_crop", 1.15))
+        use_invChecker =  request.form.get("use_invChecker", "True") == "True"
 
-    return {
-        "bone_age": bone_age,
-        "used_sex": sex,
-        "sex_predicted": sex_predicted,
-    }
+        bone_age, sex = get_prediction(image_bytes, sex, use_mask, use_invChecker, mask_crop=mask_crop)
+
+        return {
+            "bone_age": bone_age,
+            "used_sex": sex,
+        }
+    except Exception as e:
+        logger.exception("Prediction failed")
+        abort(500, f"Prediction failed: {str(e)}")
 
 @app.get("/")
 def ping():
@@ -145,7 +174,7 @@ if __name__ == "__main__":
 # data = {
 #     "sex": "female",
 #     "use_mask": "1"  # 1 for True, 0 for False
+#     "mask_crop":
 # }
-
 # resp = requests.post(url, files=files, data=data)
 # resp.json()

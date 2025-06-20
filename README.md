@@ -87,8 +87,10 @@ test_img = "/path/to/xray.png"
 files = { "file": open(test_img, "rb") }
 
 data = {
-    "sex": "female",  # specify if known, else is predicted
-    "use_mask": True  # default is true
+        "sex": "female",  # specify
+        "use_mask": True,  # default is true
+        "mask_crop":  1.15,  # default is 1.15
+        "use_invChecker": True, # default is true
 }
 
 resp = requests.post(url, files=files, json=data)
@@ -100,15 +102,8 @@ Gives something like:
 ```json
 {
     "bone_age": 164.9562530517578,
-    "sex_predicted": false,
-    "used_sex": "female"
 }
 ```
-
-## Predicting Sex
-
-The canonical way would be as described in previous sections, using the predicted mask and specifying the sex.
-If, however, the sex happens to be unknown (or unsure for e.g. errors during inserting the data) the sex can also be predicted.
 
 ## Usage of Masks
 

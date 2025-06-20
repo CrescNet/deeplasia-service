@@ -125,13 +125,14 @@ class Predictor:
     def get_inference_augmentation(width=512, height=512, rotation_angle=0, flip=False):
         return A.Compose(
             [
-                A.transforms.HorizontalFlip(p=flip),
+                #A.transforms.HorizontalFlip(p=flip),  #Outdated
                 A.augmentations.geometric.transforms.Affine(
                     rotate=(rotation_angle, rotation_angle),
                     p=1.0,
                 ),
                 A.augmentations.crops.transforms.RandomResizedCrop(
-                    width, height, scale=(1.0, 1.0), ratio=(1.0, 1.0)
+                    width, height, scale=(1.0, 1.0), ratio=(1.0, 1.0) #Old version
+                    #(width, height), scale=(1.0, 1.0), ratio=(1.0, 1.0) #New Version
                 ),
                 ToTensorV2(),
             ],
@@ -166,7 +167,7 @@ class SexPredictor(Predictor):
                 # if "highRes" in name:
                 #     age_hat, y_hat = model(high_res_image, male)
                 # else:
-                y_hat = model(norm_image, male)
+                _, y_hat = model(norm_image, male)#y_hat = model(norm_image, male)
                 y_hats[name] = {"cor": torch.sigmoid(y_hat).item()}
         stats = pd.DataFrame(y_hats).T
         return stats.cor.mean(), stats
@@ -190,7 +191,7 @@ class EfficientModel(nn.Module):
         optimized to load pretrained weights from bone age prediction models
         """
         super(EfficientModel, self).__init__()
-        weight_dict = torch.load(pretrained_path, map_location="cpu")
+        weight_dict = torch.load(pretrained_path, map_location="cpu")#, weights_only=False) # For newer Version:, weights_only=False)
         assert (
             backbone in EfficientNet.VALID_MODELS
         ), f"Given base model type ({backbone}) is invalid"
